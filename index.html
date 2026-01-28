@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>3교대 28일 주기 자동 배정</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui; max-width: 820px; margin: 40px auto; }
+    .row { margin: 12px 0; }
+    button { padding: 10px 16px; font-size: 15px; }
+    input[type="file"] { padding: 8px; }
+    label { display:block; font-weight:600; margin-bottom:6px; }
+  </style>
+</head>
+<body>
+  <h2>🗓️ 3교대 28일 주기 자동 배정</h2>
+  <div class="row">
+    <label>입력 템플릿(.xlsx) 업로드</label>
+    <input id="file" type="file" accept=".xlsx" />
+  </div>
+  <div class="row">
+    <label><input id="optA" type="checkbox" /> 옵션 A) 공휴일 등 충돌 시 <b>주 내 1회 주휴</b>로 이동 허용</label>
+  </div>
+  <div class="row">
+    <button id="run">🚀 자동 배정 실행</button>
+  </div>
+  <div id="msg"></div>
+  <script>
+    const byId = (x) => document.getElementById(x);
+    byId('run').onclick = async () => {
+      const f = byId('file').files[0];
+      if (!f) { alert('엑셀 템플릿을 선택하세요.'); return; }
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('allow_weekly_rest_shift_within_week', byId('optA').checked ? 'true' : '');
+      const btn = byId('run'); btn.disabled = true; btn.textContent = '⏳ 배정 중…';
+      byId('msg').textContent = '';
+      try {
+        const res = await fetch('/api/schedule', { method: 'POST', body: fd });
+        if (!res.ok || !res.headers.get('Content-Type')?.includes('spreadsheetml')) {
+          const t = await res.text();
+          throw new Error(`생성 실패: ${t}`);
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '번표_28일주기.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+        byId('msg').textContent = '✅ 다운로드가 시작되었습니다.';
+      } catch (e) {
+        byId('msg').textContent = `❌ ${e.message}`;
+      } finally {
+        btn.disabled = false; btn.textContent = '🚀 자동 배정 실행';
+      }
+    };
+  </script>
+</body>
+</html>
